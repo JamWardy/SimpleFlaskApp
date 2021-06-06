@@ -2,6 +2,8 @@
 
 from flask import Flask, render_template, redirect, request, url_for
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import login_user, LoginManager, UserMixin, logout_user, login_required
+from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
 app.config["DEBUG"] = True
@@ -17,6 +19,21 @@ app.config["SQLALCHEMY_POOL_RECYCLE"] = 299
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
+app.secret_key = "FMvbzG8n1uZSB2YZK6Kb"
+login_manager = LoginManager()
+login_manager.init_app(app)
+
+class User(UserMixin):
+
+    def __init__(self, username, password_hash):
+        self.username = username
+        self.password_hash = password_hash
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+    def get_id(self):
+        return self.username
 
 class Comment(db.Model):
 
@@ -24,6 +41,16 @@ class Comment(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.String(4096))
+
+all_users = {
+    "admin": User("admin", generate_password_hash("secret")),
+    "bob": User("bob", generate_password_hash("less-secret")),
+    "caroline": User("caroline", generate_password_hash("completely-secret")),
+}
+
+@login_manager.user_loader
+def load_user(user_id):
+    return all_users.get(user_id)
 
 @app.route('/', methods = ["GET", "POST"])
 def index():
@@ -35,6 +62,24 @@ def index():
     db.session.commit()
     return redirect(url_for('index'))
 
-@app.route('/login')
+@app.route('/login/', methods = ["GET", "POST"])
 def login():
-    return render_template("login_page.html")
+    if request.method == "GET":
+        return render_template("login_page.html", error = False)
+
+    username = request.form["username"]
+    if username not in all_users:
+        return render_template("login_page.html", error = True)
+    user = all_users[username]
+
+    if not user.check_password(request.form["password"]):
+        return render_template("login_page.html", error = True)
+
+    login_user(user)
+    return redirect(url_for('index'))
+
+@app.route("/logout/")
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('index'))
