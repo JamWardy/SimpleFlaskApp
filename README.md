@@ -1,1 +1,1 @@
-This is a simple flask app made from a tutorial on pythonanywhere.com
+This is a simple flask app originally made from a tutorial on pythonanywhere.com, but then added to for more functionality.

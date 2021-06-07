@@ -4,7 +4,7 @@ from flask import Flask, render_template, redirect, request, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import login_user, LoginManager, UserMixin, logout_user, login_required, current_user
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime
 
 app = Flask(__name__)
@@ -87,4 +87,22 @@ def login():
 @login_required
 def logout():
     logout_user()
+    return redirect(url_for('index'))
+
+@app.route("/new_user/", methods = ["GET", "POST"])
+def new_user():
+    if request.method == "GET":
+        return render_template("new_user.html", error = False)
+
+    new_username = request.form["username"]
+    if load_user(new_username) is not None:
+        return render_template("new_user.html", error=True)
+
+    new_password_hash = generate_password_hash(request.form["password"])
+    new_user_object = User(username = new_username, password_hash = new_password_hash)
+    db.session.add(new_user_object)
+    db.session.commit()
+
+    user = load_user(new_username)
+    login_user(user)
     return redirect(url_for('index'))
